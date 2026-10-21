@@ -63,9 +63,14 @@ textarea{position:relative;background:transparent;color:var(--ink);resize:none;o
 .tog[aria-pressed="true"]{background:var(--hi);color:var(--hi-ink)}
 .sug{border-top:1px solid var(--line);padding:10px 16px 12px;max-height:34vh;overflow-y:auto}
 .sug[hidden]{display:none}
-.sug-head{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-bottom:6px}
+.sug-head{display:flex;align-items:center;gap:4px;font-size:14px;color:var(--muted);margin-bottom:6px}
 .sug-head b{color:var(--ink)}
 .sug-head .x{margin-left:auto;font-size:14px;padding:4px 10px;color:var(--ink)}
+.sug-head .tab{font-size:14px;padding:4px 10px;color:var(--muted)}
+.sug-head .tab[aria-pressed="true"]{background:var(--sel);color:var(--ink);font-weight:600}
+.sug-head .sw{margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chip small{font-size:11px;color:var(--muted);margin-left:5px;font-variant-numeric:tabular-nums}
+.defs p{margin:6px 0;font-size:15px;line-height:1.45}.defs i{color:var(--muted);margin-right:4px}
 .sug-head .x:hover{background:var(--sel)}
 .sug.min{padding:6px 16px}
 .sug.min .sug-head{margin:0}
@@ -276,31 +281,108 @@ function paint(){
   LAST={toks,marks,scheme,lineSyl,LINES,isHead};
   fit();
 }
-let sugWord='', sugClosed=false; try{sugClosed=localStorage.getItem('lyricbook.sugClosed')==='true'}catch(e){}
+let sugWord='', sugRange=null, sugClosed=false, sugTab='rhymes';
+try{sugClosed=localStorage.getItem('lyricbook.sugClosed')==='true'; sugTab=localStorage.getItem('lyricbook.sugTab')||'rhymes'}catch(e){}
 function caretWord(){
   const b=document.getElementById('body'); if(!b) return;
-  let s=b.selectionStart, e=b.selectionEnd, text=b.value, w;
-  if(e>s) w=text.slice(s,e).trim().split(/\s+/).pop();
+  let s=b.selectionStart, e=b.selectionEnd, text=b.value, w; sugRange=null;
+  if(e>s){ w=text.slice(s,e).trim().split(/\s+/).pop(); if(!/\s/.test(text.slice(s,e).trim())) sugRange={s,e} }
   else { let i=s; while(i>0&&/[A-Za-z'’]/.test(text[i-1])) i--; let j=s; while(j<text.length&&/[A-Za-z'’]/.test(text[j])) j++;
-    w=text.slice(i,j); if(!w){ const m=text.slice(0,s).match(/([A-Za-z'’]+)([^A-Za-z'’]*)$/); w=m&&!/\n[^\S\n]*\n/.test(m[2])?m[1]:''; } }
+    w=text.slice(i,j); if(w) sugRange={s:i,e:j};
+    else { const m=text.slice(0,s).match(/([A-Za-z'’]+)([^A-Za-z'’]*)$/); w=m&&!/\n[^\S\n]*\n/.test(m[2])?m[1]:''; } }
   w=(w||'').replace(/[^A-Za-z'’]/g,'');
   if(w.toLowerCase()!==sugWord){sugWord=w.toLowerCase();showSug(w)}
+}
+// Dictionary + thesaurus: dictionary.js (WordNet) is only downloaded the first time it's needed.
+let WN=null, wnLoading=null;
+function loadDict(){
+  if(WN) return Promise.resolve(WN);
+  return wnLoading=wnLoading||new Promise((ok,fail)=>{ const sc=document.createElement('script'); sc.src='dictionary.js';
+    sc.onload=()=>{ WN=new Map(); WORDNET.split('\n').forEach(l=>WN.set(l.slice(0,l.indexOf('|')),l)); ok(WN) };
+    sc.onerror=()=>{wnLoading=null;fail()}; document.head.appendChild(sc) });
+}
+function wnEntry(t){ // parsed dictionary line, following "=base" pointers
+  let l=WN.get(t); if(!l) return null; let [base,defs,syns,ants,rel]=l.split('|');
+  if(defs[0]==='='){ l=WN.get(defs.slice(1)); if(!l) return null; [base,defs,syns,ants,rel]=l.split('|') }
+  const parse=s=>s?s.split('~').map(x=>({pos:x[0],text:x.slice(2)})):[];
+  return {base,defs:parse(defs),syns:parse(syns).map(x=>({pos:x.pos,words:x.text.split(',')})),ants:ants?ants.split(','):[],rel:rel?rel.split(','):[]};
+}
+// Finds a word's entry, plus its dictionary form's verb meanings for changed forms:
+// "running" -> running (noun/adjective) + run (verb), "cries" -> cry, "grindin'" -> grinding + grind
+function lookup(word){
+  const w=word.toLowerCase().replace(/’/g,"'").replace(/in'$/,'ing').replace(/^'+|'+$/g,'').replace(/'s$/,'');
+  let own=wnEntry(w); const tries=[]; const add=(re,r)=>{if(re.test(w)) tries.push(w.replace(re,r))};
+  add(/ies$/,'y'); add(/ied$/,'y'); add(/es$/,''); add(/s$/,''); add(/ed$/,''); add(/ed$/,'e');
+  add(/([^aeiou])\1(ing|ed)$/,'$1'); add(/ing$/,''); add(/ing$/,'e'); add(/ier$/,'y'); add(/iest$/,'y'); add(/er$/,''); add(/est$/,''); add(/ly$/,'');
+  let base=null; for(const t of tries){ const e=wnEntry(t); if(e&&e.base===t){base=e;break} }
+  if(own&&own.base!==w){ if(!base||base.base===own.base) base=own; own=null }
+  if(!base) return own&&{...own,shown:own.base};
+  if(own&&!formOf(w,base.base)) return {...own,shown:own.base}; // "cold" is not a form of "col"
+  const f=formOf(w,base.base), keep=x=>f==='s'||!f||x.pos==='v';
+  base.syns.forEach(g=>g.f=f);
+  if(!own) return {...base,defs:base.defs.filter(keep).length?base.defs.filter(keep):base.defs,syns:base.syns.filter(keep).length?base.syns.filter(keep):base.syns,shown:base.base};
+  const vb=x=>f!=='s'&&x.pos==='v'?-1:0; // verb meanings of the dictionary form first
+  return {base:w,shown:own.base===w?w:own.base,defs:[...base.defs.filter(keep),...own.defs].sort((x,y)=>vb(x)-vb(y)),
+    syns:[...base.syns.filter(keep),...own.syns].sort((x,y)=>vb(x)-vb(y)),ants:own.ants.length?own.ants:base.ants,rel:own.rel.length?own.rel:base.rel};
+}
+const POS_NAME={n:'Noun',v:'Verb',a:'Adjective',r:'Adverb'};
+// Puts a synonym into the same form as the word it replaces: running -> escaping, dreams -> visions.
+const IRREGULAR=new Map(('be was,become became,begin began,bend bent,bet bet,bind bound,bite bit,bleed bled,blow blew,break broke,breed bred,bring brought,build built,burst burst,buy bought,cast cast,catch caught,choose chose,come came,cost cost,creep crept,cut cut,deal dealt,dig dug,do did,draw drew,drink drank,drive drove,eat ate,fall fell,feed fed,feel felt,fight fought,find found,flee fled,fly flew,forget forgot,forgive forgave,freeze froze,get got,give gave,go went,grind ground,grow grew,hang hung,have had,hear heard,hide hid,hit hit,hold held,hurt hurt,keep kept,kneel knelt,know knew,lay laid,lead led,leave left,lend lent,let let,lie lay,light lit,lose lost,make made,mean meant,meet met,pay paid,put put,quit quit,read read,ride rode,ring rang,rise rose,run ran,say said,see saw,seek sought,sell sold,send sent,set set,shake shook,shine shone,shoot shot,shut shut,sing sang,sink sank,sit sat,sleep slept,slide slid,speak spoke,spend spent,spin spun,spit spat,split split,spread spread,stand stood,steal stole,stick stuck,sting stung,strike struck,swear swore,sweep swept,swim swam,swing swung,take took,teach taught,tear tore,tell told,think thought,throw threw,understand understood,wake woke,wear wore,weep wept,win won,wind wound,write wrote').split(',').map(x=>x.split(' ')));
+const PAST=new Set(IRREGULAR.values());
+function formOf(word,base){ const w=word.toLowerCase().replace(/’/g,"'");
+  if(PAST.has(w)&&IRREGULAR.get(base)===w) return 'ed';
+  if(/(ing|in')$/.test(w)&&!/(ing|in')$/.test(base)) return 'ing';
+  if(/ing$/.test(w)&&base===w) return 'ing';
+  if(/ed$/.test(w)&&!/ed$/.test(base)) return 'ed';
+  if(/s$/.test(w)&&!/s$/.test(base)) return 's';
+  return '';
+}
+function inflect(phrase,form,pos){
+  if(!form||(form!=='s'&&pos!=='v')||(form==='s'&&pos!=='n'&&pos!=='v')) return phrase;
+  const ws=phrase.split(' '), at=pos==='n'?ws.length-1:0, w=ws[at]; let o=w; // nouns: last word (pipe dreams); verbs: first (gave up)
+  const dbl=syl(w)===1&&/[^aeiou][aeiou][bdgklmnprt]$/.test(w);
+  if(form==='ing') o=dbl?w+w.slice(-1)+'ing':/ie$/.test(w)?w.slice(0,-2)+'ying':/[^e]e$/.test(w)?w.slice(0,-1)+'ing':w+'ing';
+  else if(form==='ed') o=IRREGULAR.get(w)||(dbl?w+w.slice(-1)+'ed':/e$/.test(w)?w+'d':/[^aeiou]y$/.test(w)?w.slice(0,-1)+'ied':w+'ed');
+  else o=/(s|sh|ch|x|z)$/.test(w)?w+'es':/[^aeiou]y$/.test(w)?w.slice(0,-1)+'ies':w+'s';
+  ws[at]=o; return ws.join(' ');
 }
 function showSug(w){
   const el=document.getElementById('sug'); if(!el) return;
   if(!w){el.hidden=true;return}
   el.hidden=false;
-  const head=`<div class="sug-head">Rhymes for <b>${esc(w)}</b><button class="x" id="sugTog">${sugClosed?'Show':'Hide'}</button></div>`;
-  const wire=()=>document.getElementById('sugTog').onclick=()=>{sugClosed=!sugClosed;try{localStorage.setItem('lyricbook.sugClosed',sugClosed)}catch(e){};showSug(w)};
+  const tab=(id,label)=>`<button class="tab" data-tab="${id}" aria-pressed="${sugTab===id}">${label}</button>`;
+  const head=`<div class="sug-head">${tab('rhymes','Rhymes')}${tab('syn','Synonyms')}${tab('def','Define')}<b class="sw">${esc(w)}</b><button class="x" id="sugTog">${sugClosed?'Show':'Hide'}</button></div>`;
+  const wire=()=>{ document.getElementById('sugTog').onclick=()=>{sugClosed=!sugClosed;try{localStorage.setItem('lyricbook.sugClosed',sugClosed)}catch(e){};showSug(w)};
+    el.querySelectorAll('.tab').forEach(t=>t.onmousedown=ev=>{ev.preventDefault();sugTab=t.dataset.tab;sugClosed=false;
+      try{localStorage.setItem('lyricbook.sugTab',sugTab);localStorage.setItem('lyricbook.sugClosed',false)}catch(e){};showSug(w)}) };
+  const chips=(a,sylls)=>a.length?`<div class="chips">${a.map(x=>`<button class="chip" data-w="${esc(x)}">${esc(x)}${sylls?`<small>${x.split(' ').reduce((n,p)=>n+syl(p),0)}</small>`:''}</button>`).join('')}</div>`:'<div class="none2">None found</div>';
+  const tapChips=fn=>el.querySelectorAll('.chip').forEach(c=>c.onmousedown=ev=>{ev.preventDefault();fn(c.dataset.w)});
   if(sugClosed){el.innerHTML=head;el.classList.add('min');wire();return}
-  el.classList.remove('min'); const s=suggest(w);
-  const chips=a=>a.length?`<div class="chips">${a.map(x=>`<button class="chip">${esc(x)}</button>`).join('')}</div>`:'<div class="none2">None found</div>';
-  el.innerHTML=head+
-    (s?(s.multi.length?`<h3>Multis</h3>${chips(s.multi)}`:'')+`<h3>Perfect</h3>${chips(s.perfect)}`+
-      (s.phrases.length?`<h3>Phrases</h3>${chips(s.phrases)}`:'')+`<h3>Near</h3>${chips(s.near)}`
-     :'<div class="none2">This word isn\'t in the dictionary yet.</div>');
-  wire();
-  el.querySelectorAll('.chip').forEach(c=>c.onmousedown=ev=>{ev.preventDefault();insertWord(c.textContent)});
+  el.classList.remove('min');
+  if(sugTab==='rhymes'){ const s=suggest(w);
+    el.innerHTML=head+
+      (s?(s.multi.length?`<h3>Multis</h3>${chips(s.multi)}`:'')+`<h3>Perfect</h3>${chips(s.perfect)}`+
+        (s.phrases.length?`<h3>Phrases</h3>${chips(s.phrases)}`:'')+`<h3>Near</h3>${chips(s.near)}`
+       :'<div class="none2">This word isn\'t in the dictionary yet.</div>');
+    wire(); tapChips(insertWord); return }
+  if(!WN){ el.innerHTML=head+'<div class="none2">Loading dictionary…</div>'; wire();
+    loadDict().then(()=>{if(sugWord===w.toLowerCase()) showSug(w)},()=>{el.innerHTML=head+'<div class="none2">The dictionary couldn\'t load. Check your connection and try again.</div>';wire()}); return }
+  const d=lookup(w);
+  const note=d&&d.shown!==w.toLowerCase().replace(/’/g,"'")?`<div class="none2">Showing <b>${esc(d.shown)}</b></div>`:'';
+  if(!d) el.innerHTML=head+'<div class="none2">No entry for this word.</div>';
+  else if(sugTab==='syn'){ const f=formOf(w,d.shown); el.innerHTML=head+note+
+    (d.syns.length?d.syns.map(g=>`<h3>${POS_NAME[g.pos]}</h3>${chips(g.words.map(x=>inflect(x,g.f||'',g.pos)),1)}`).join(''):'<h3>Synonyms</h3><div class="none2">None found</div>')+
+    (d.rel.length?`<h3>Related</h3>${chips(d.rel.map(x=>inflect(x,f,'n')),1)}`:'')+(d.ants.length?`<h3>Opposites</h3>${chips(d.ants,1)}`:''); }
+  else el.innerHTML=head+note+`<div class="defs">${d.defs.map(x=>`<p><i>${POS_NAME[x.pos].toLowerCase()}</i> ${esc(x.text)}</p>`).join('')}</div>`+
+    (d.ants.length?`<h3>Opposites</h3>${chips(d.ants,1)}`:'');
+  wire(); tapChips(replaceWord);
+}
+function replaceWord(word){ // swaps the word at the cursor for a synonym, keeping its capital letter
+  const b=document.getElementById('body'), r=sugRange;
+  if(!r||b.value.slice(r.s,r.e).replace(/[^A-Za-z'’]/g,'').toLowerCase()!==sugWord) return insertWord(word);
+  const old=b.value.slice(r.s,r.e); if(/^[A-Z]/.test(old)) word=word[0].toUpperCase()+word.slice(1);
+  b.value=b.value.slice(0,r.s)+word+b.value.slice(r.e); const p=r.s+word.length;
+  b.focus(); b.setSelectionRange(p,p); current.body=b.value; changed(); paint(); caretWord();
 }
 function insertWord(word){
   const b=document.getElementById('body'); const s=b.selectionStart, e=b.selectionEnd, v=b.value;

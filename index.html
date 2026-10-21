@@ -164,7 +164,34 @@ function entriesFor(w){ // all pronunciations of a word, usual one first
   if(DICT.has(w)) return DICT.get(w);
   const t=w.replace(/^'+|'+$/g,''); if(DICT.has(t)) return DICT.get(t);
   if(/in$/.test(t)){const g=t+'g';if(DICT.has(g))return DICT.get(g)}
-  return null;
+  return guessEntries(t);
+}
+// Made-up words (slang, ad-libs, names): borrow the ending sound of the real word whose spelling ends the
+// same way, e.g. scoopy -> loopy (UW.IY), nitch -> pitch (IH.CH). The result works like a dictionary entry.
+let REV=null; const GUESS=new Map(), rev=x=>x.split('').reverse().join('');
+const vgroups=w=>(w.replace(/^y/,'').replace(/([^aeiouy])e$/,'$1').match(/[aeiouy]+/g)||[]).length;
+function guessEntries(w){
+  if(GUESS.has(w)) return GUESS.get(w);
+  let res=null;
+  if(/^[a-z']{2,}$/.test(w)&&/[aeiouy]/.test(w)){
+    if(!REV) REV=[...DICT.keys()].map(rev).sort();
+    const r=rev(w); let lo=0, hi=REV.length;
+    while(lo<hi){const m=(lo+hi)>>1; if(REV[m]<r) lo=m+1; else hi=m}
+    const lcp=x=>{let n=0; while(n<x.length&&n<r.length&&x[n]===r[n]) n++; return n};
+    const L=Math.max(lo>0?lcp(REV[lo-1]):0, lo<REV.length?lcp(REV[lo]):0);
+    if(L>=2&&vgroups(rev(r.slice(0,L)))){
+      let donor=null; // most common word sharing that ending
+      for(const step of [-1,1]) for(let i=step<0?lo-1:lo, n=0; i>=0&&i<REV.length&&n<400&&lcp(REV[i])>=L; i+=step, n++){
+        const d=rev(REV[i]); if(!donor||rk(d)<rk(donor)) donor=d }
+      const D=DICT.get(donor)[0], Di=info(D), ph=D.t.split('.'), vi=[];
+      ph.forEach((p,i)=>{if(VOW.test(p)) vi.push(i)});
+      const N=Math.max(1,Math.min(vgroups(rev(r.slice(0,L))),Di.V.length));
+      const tail=ph.slice(vi[Di.V.length-N]); tail[0]=tail[0].slice(0,2)+'1';
+      const preN=Math.max(0,vgroups(w)-N);
+      res=[{w,t:tail.join('.'),pre:Array(preN).fill('AH0').join('.'),from:donor}];
+    }
+  }
+  GUESS.set(w,res); return res;
 }
 const entryFor=w=>{const es=entriesFor(w); return es?info(es[0]):null};
 const rk=w=>RANK.has(w)?RANK.get(w):1e9;
@@ -362,11 +389,11 @@ function showSug(w){
   const tapChips=fn=>el.querySelectorAll('.chip').forEach(c=>c.onmousedown=ev=>{ev.preventDefault();fn(c.dataset.w)});
   if(sugClosed){el.innerHTML=head;el.classList.add('min');wire();return}
   el.classList.remove('min');
-  if(sugTab==='rhymes'){ const s=suggest(w);
-    el.innerHTML=head+
+  if(sugTab==='rhymes'){ const s=suggest(w), g=entriesFor(w), from=g&&g[0].from;
+    el.innerHTML=head+(s&&from?`<div class="none2">Not in the dictionary, so it's rhymed like <b>${esc(from)}</b></div>`:'')+
       (s?(s.multi.length?`<h3>Multis</h3>${chips(s.multi)}`:'')+`<h3>Perfect</h3>${chips(s.perfect)}`+
         (s.phrases.length?`<h3>Phrases</h3>${chips(s.phrases)}`:'')+`<h3>Near</h3>${chips(s.near)}`
-       :'<div class="none2">This word isn\'t in the dictionary yet.</div>');
+       :'<div class="none2">Can\'t tell how this word sounds yet.</div>');
     wire(); tapChips(insertWord); return }
   if(!WN){ el.innerHTML=head+'<div class="none2">Loading dictionary…</div>'; wire();
     loadDict().then(()=>{if(sugWord===w.toLowerCase()) showSug(w)},()=>{el.innerHTML=head+'<div class="none2">The dictionary couldn\'t load. Check your connection and try again.</div>';wire()}); return }

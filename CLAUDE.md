@@ -6,7 +6,7 @@ A minimal, Notes-style lyric writing app (inspired by Rhymer's Block). Owner is 
 Current build: one self-contained web page, `index.html` (~2.3 MB, mostly embedded rhyme data). Target platforms: iPhone first, then Mac and PC. A native SwiftUI (iPhone/Mac) version is the long-term plan; the web version may stay for PC.
 
 ## Hosting
-GitHub repo `slideintomypictochat/lyric-book`, served by GitHub Pages from `main` at https://slideintomypictochat.github.io/lyric-book/ (the owner tests there on iPhone).
+GitHub repo `slideintomypictochat/Lyric-Book`, served by GitHub Pages from `main` at https://slideintomypictochat.github.io/Lyric-Book/ (the owner tests there on iPhone).
 
 ## Files
 - `index.html`: the whole app (HTML, CSS and JS inline). Two `<script>` blocks: the first is data (`RHYME_DATA`, `RANKED`), the second is app logic.

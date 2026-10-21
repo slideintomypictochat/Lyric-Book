@@ -130,9 +130,10 @@ RHYME_DATA.split(';').forEach(g=>{const [t,ws]=g.split('=');const [com,rare]=ws.
   const add=(x,c)=>{if(!x) return; const alt=x[0]==='*', [w,pre]=(alt?x.slice(1):x).split('~'), e={w,t,pre:pre||''};
     if(!DICT.has(w)) DICT.set(w,[]); DICT.get(w)[alt?'push':'unshift'](e); if(c) COMMON.push(e)};
   com.split(',').forEach(x=>add(x,1)); rare.split(',').forEach(x=>add(x,0))});
-// Vowels are normalised so near-identical sounds compare equal: UH = AH, and unstressed IH ("-ing") = AH.
+// Vowels are normalised so near-identical sounds compare equal: unstressed UH and IH ("-ing") = AH.
+// Stressed UH (took, good) stays separate from AH (love).
 const VOW=/^[A-Z]{2}\d$/;
-const nv=p=>{const v=p.slice(0,2); return v==='UH'||(v==='IH'&&p[2]==='0')?'AH':v};
+const nv=p=>{const v=p.slice(0,2); return (v==='UH'||v==='IH')&&p[2]==='0'?'AH':v};
 // Sound info for a pronunciation, worked out once and cached:
 //  V   vowels from the main stress    vow  all vowels           k   main-stress vowel key (multi rhymes)
 //  ek  vowels from the LAST stressed syllable (e.g. dopa-MINE -> IY)  et  same with consonants (perfect end rhyme)
@@ -148,8 +149,10 @@ function info(e){ if(e.i) return e.i;
 const STOP=new Set('a an the and of to in on at is it its it\'s for with as or but be are was were that this than then from by'.split(' '));
 const COLORS=['rgba(245,197,66,.55)','rgba(110,190,255,.45)','rgba(255,120,150,.42)','rgba(120,220,140,.45)','rgba(190,140,255,.45)','rgba(255,160,80,.48)','rgba(80,210,210,.45)','rgba(240,120,230,.40)'];
 const HEAD=/^\s*\[[^\]\n]+\]\s*$/; let LAST=null;
-const WINDOW=4; // lines to look back/ahead for a rhyme partner
-const NEAR_END=1; // one-syllable words highlight only if among the last 2 words of a line
+const WINDOW=Infinity; // lines to look back/ahead for a rhyme partner (whole paragraph)
+const NEAR_END=1; // filler words highlight only if among the last 2 words of a line ("rock with me")
+// Small everyday words (and their slang spellings): they rhyme at a line end, but mid-line they'd light up everywhere.
+const FILLER_HL=new Set("i me my mine myself you your yours u ur ya yo he him his she her hers we us our they them their it's its im i'm i'll i'd i've ive ill id you're youre we're they're he's she's that's thats what who how why when where there here so do does did not no yes yeah oh uh if just all some any can could would should will wont won't don't dont can't cant ain't aint gonna wanna gotta finna tryna imma ima lemme gimme cuz cause 'cause dis dat da dem dey y'all yall be been being am have has had like up out off down over into through too very really".split(' '));
 function guessKey(w){ // rough fallback for slang / words not in the dictionary
   const rules=[[/(ee|ea|ie|ey|y)$/,'IY'],[/(igh|y|ie|i.e)$/,'AY'],[/(ay|ai|a.e|ey)$/,'EY'],[/(oo|ew|ue|u.e)$/,'UW'],[/(ow|oa|o.e|o)$/,'OW'],[/(ou|ow)/,'AW'],[/a[^aeiou]*$/,'AE'],[/e[^aeiou]*$/,'EH'],[/i[^aeiou]*$/,'IH'],[/o[^aeiou]*$/,'AA'],[/u[^aeiou]*$/,'AH']];
   for(const [re,k] of rules) if(re.test(w)) return k;
@@ -244,8 +247,8 @@ function paint(){
     const kf=keyFor(m[0]); toks.push({s:m.index,e:m.index+m[0].length,w:m[0].toLowerCase(),line,para,k:kf&&kf.k,ek:kf&&kf.ek}); }
   // how many words from the end of its line each word sits (0 = last word)
   for(let i=toks.length-1,n=0;i>=0;i--){n=i<toks.length-1&&toks[i+1].line===toks[i].line?n+1:0;toks[i].fromEnd=n}
-  // one-syllable words only count near the end of a line; longer words count anywhere
-  const ok=t=>t.fromEnd<=NEAR_END||syl(t.w)>1;
+  // filler words only count near the end of a line; real words count anywhere (internal rhymes)
+  const ok=t=>t.fromEnd<=NEAR_END||!FILLER_HL.has(t.w.replace(/’/g,"'"));
   const marks=new Map();
   // single-word rhymes
   for(let i=0;i<toks.length;i++){const a=toks[i]; if(!a.k||!ok(a)) continue;
@@ -260,9 +263,9 @@ function paint(){
       const span=[j]; let n=j+1;
       while(seq.length<K.length&&n<toks.length&&n!==i&&toks[n].line===b.line){const v=vowelsOf(toks[n].w); if(!v) break; seq=seq.concat(v); span.push(n); n++}
       if(seq.length!==K.length||!seq.every((v,x)=>v===K[x])) continue;
-      // skip filler ("shine like the"), and all-one-syllable groups unless they end the line
+      // skip groups with stop-words ("shine like the"); groups with filler ("behind us") must end the line
       if(span.some(x=>STOP.has(toks[x].w))) continue;
-      if(span.every(x=>syl(toks[x].w)===1)&&toks[span[span.length-1]].fromEnd>NEAR_END) continue;
+      if(span.some(x=>FILLER_HL.has(toks[x].w.replace(/’/g,"'")))&&toks[span[span.length-1]].fromEnd>NEAR_END) continue;
       marks.set(i,a.k);span.forEach(x=>marks.set(x,a.k))}}
   // rhyme scheme letters + syllables per line
   const lineSyl=[], lineEnd=[];

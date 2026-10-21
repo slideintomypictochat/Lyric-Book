@@ -20,11 +20,11 @@ GitHub repo `slideintomypictochat/Lyric-Book`, served by GitHub Pages from `main
 - **Delete:** two-tap confirm. `confirm()` is blocked in the sandbox, so don't use it.
 - **Word and line count** in the footer. **Syllables per line** in the right margin.
 - **Rhyme highlighting:** a transparent `<textarea>` sits over a `.hl` mirror div that holds `<mark>` tags. They must keep an identical width, font and wrapping, or the highlights drift; this broke once already. Rules:
-  - Words match on their main-stress vowel key (`k`) **or** their end sound (`ek`, from the last stressed syllable including secondary stress, so dopa-MINE ~ seen, para-DISE ~ price). Vowels are normalised: UH = AH, unstressed IH = AH.
-  - A word only highlights if a partner is within 4 lines (`WINDOW`) **and** in the same paragraph.
+  - Words match on their main-stress vowel key (`k`) **or** their end sound (`ek`, from the last stressed syllable including secondary stress, so dopa-MINE ~ seen, para-DISE ~ price). Vowels are normalised: unstressed UH and IH = AH (stressed UH, as in took, stays separate from love).
+  - A word highlights if a partner is anywhere in the same paragraph (`WINDOW` = Infinity, owner's request: show how rhymes string through a verse).
   - A blank line or a `[Header]` line starts a new paragraph.
   - Multi-word rhymes are detected, e.g. "diamonds" ~ "behind us".
-  - One-syllable words only highlight if among the last 2 words of a line (`NEAR_END`); longer words highlight anywhere. Multi-word groups can't contain stop-words, and all-one-syllable groups must end the line.
+  - Internal rhymes count: any real word highlights wherever it sits (bitch ~ nitch mid-line). Filler words (`FILLER_HL`: pronouns, auxiliaries, slang like im/wanna/aint) only highlight if among the last 2 words of a line (`NEAR_END`). Multi-word groups can't contain stop-words, and groups with filler ("behind us") must end the line.
   - Stop-words are skipped. Slang `-in'` maps to `-ing`, and unknown words fall back to a spelling guess.
   - A Rhymes button toggles highlighting on and off.
 - **Rhyme suggestions panel:** shows rhymes for the word at the cursor, or for the last word of the previous line when the current line is empty (but not across a paragraph break). Groups: **Multis** (match extra syllables before the rhyme, e.g. dopamine → gasoline), **Perfect** (same end sound and consonants), **Phrases** (two-word rhymes following the word's stress, e.g. "broken seen", "behind us"), **Near** (same vowels, ranked by how close the ending consonants sound). Names and obscure words are never suggested.

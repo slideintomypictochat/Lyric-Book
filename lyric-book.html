@@ -129,6 +129,7 @@ const STOP=new Set('a an the and of to in on at is it its it\'s for with as or b
 const COLORS=['rgba(245,197,66,.55)','rgba(110,190,255,.45)','rgba(255,120,150,.42)','rgba(120,220,140,.45)','rgba(190,140,255,.45)','rgba(255,160,80,.48)','rgba(80,210,210,.45)','rgba(240,120,230,.40)'];
 const HEAD=/^\s*\[[^\]\n]+\]\s*$/; let LAST=null;
 const WINDOW=4; // lines to look back/ahead for a rhyme partner
+const NEAR_END=1; // one-syllable words highlight only if among the last 2 words of a line
 function guessKey(w){ // rough fallback for slang / words not in the dictionary
   const rules=[[/(ee|ea|ie|ey|y)$/,'IY'],[/(igh|y|ie|i.e)$/,'AY'],[/(ay|ai|a.e|ey)$/,'EY'],[/(oo|ew|ue|u.e)$/,'UW'],[/(ow|oa|o.e|o)$/,'OW'],[/(ou|ow)/,'AW'],[/a[^aeiou]*$/,'AE'],[/e[^aeiou]*$/,'EH'],[/i[^aeiou]*$/,'IH'],[/o[^aeiou]*$/,'AA'],[/u[^aeiou]*$/,'AH']];
   for(const [re,k] of rules) if(re.test(w)) return k;
@@ -171,11 +172,15 @@ function paint(){
     if(prevLine>=0) for(let l=prevLine+1;l<line;l++) if(!LINES[l].trim()||isHead(l)){para++;break}
     prevLine=line;
     toks.push({s:m.index,e:m.index+m[0].length,w:m[0].toLowerCase(),line,para,k:keyFor(m[0])}); }
+  // how many words from the end of its line each word sits (0 = last word)
+  for(let i=toks.length-1,n=0;i>=0;i--){n=i<toks.length-1&&toks[i+1].line===toks[i].line?n+1:0;toks[i].fromEnd=n}
+  // one-syllable words only count near the end of a line; longer words count anywhere
+  const ok=t=>t.fromEnd<=NEAR_END||syl(t.w)>1;
   const marks=new Map();
   // single-word rhymes
-  for(let i=0;i<toks.length;i++){const a=toks[i]; if(!a.k) continue;
+  for(let i=0;i<toks.length;i++){const a=toks[i]; if(!a.k||!ok(a)) continue;
     for(let j=i+1;j<toks.length&&toks[j].line-a.line<=WINDOW&&toks[j].para===a.para;j++){const b=toks[j];
-      if(b.k===a.k&&b.w!==a.w){marks.set(i,a.k);marks.set(j,a.k)}}}
+      if(b.k===a.k&&b.w!==a.w&&ok(b)){marks.set(i,a.k);marks.set(j,a.k)}}}
   // multi-word rhymes: e.g. "diamonds" ~ "behind us"
   for(let i=0;i<toks.length;i++){const a=toks[i]; if(!a.k) continue; const K=a.k.split('.'); if(K.length<2) continue;
     for(let j=0;j<toks.length;j++){const b=toks[j];
@@ -183,7 +188,11 @@ function paint(){
       let seq=b.k.split('.'); if(seq[0]!==K[0]||seq.length>=K.length) continue;
       const span=[j]; let n=j+1;
       while(seq.length<K.length&&n<toks.length&&n!==i&&toks[n].line===b.line){const v=vowelsOf(toks[n].w); if(!v) break; seq=seq.concat(v); span.push(n); n++}
-      if(seq.length===K.length&&seq.every((v,x)=>vEq(v,K[x]))){marks.set(i,a.k);span.forEach(x=>marks.set(x,a.k))}}}
+      if(seq.length!==K.length||!seq.every((v,x)=>vEq(v,K[x]))) continue;
+      // skip filler ("shine like the"), and all-one-syllable groups unless they end the line
+      if(span.some(x=>STOP.has(toks[x].w))) continue;
+      if(span.every(x=>syl(toks[x].w)===1)&&toks[span[span.length-1]].fromEnd>NEAR_END) continue;
+      marks.set(i,a.k);span.forEach(x=>marks.set(x,a.k))}}
   // rhyme scheme letters + syllables per line
   const lineSyl=[], lineEnd=[];
   toks.forEach((t,i)=>{lineSyl[t.line]=(lineSyl[t.line]||0)+syl(t.w); lineEnd[t.line]=i});

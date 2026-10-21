@@ -10,21 +10,22 @@ GitHub repo `slideintomypictochat/Lyric-Book`, served by GitHub Pages from `main
 
 ## Files
 - `index.html`: the whole app (HTML, CSS and JS inline). Two `<script>` blocks: the first is data (`RHYME_DATA`, `RANKED`), the second is app logic.
-- `build_rhyme_data.py`: regenerates the data block from the CMU Pronouncing Dictionary plus an English word-frequency list (source URLs and format are in the file header). Splice its `rhyme.js` output into the first `<script>`.
+- `build_rhyme_data.py`: regenerates the data block from the CMU Pronouncing Dictionary, an English word-frequency list and a spell-check list (to filter names). Source URLs and format are in the file header. Keeps stress digits and alternate pronunciations; `OVERRIDES` fixes words CMU gets wrong (e.g. dopamine).
+- `splice_rhyme_data.py`: puts the generated `rhyme.js` into the first `<script>` of `index.html`.
 
 ## Features working now
 - **Projects:** notes-style list on the left (single-screen list/editor toggle on mobile, under 720px). Autosaves to `localStorage` key `lyricbook.projects.v1` as `{id,title,body,updated,study}`.
 - **Delete:** two-tap confirm. `confirm()` is blocked in the sandbox, so don't use it.
 - **Word and line count** in the footer. **Syllables per line** in the right margin.
 - **Rhyme highlighting:** a transparent `<textarea>` sits over a `.hl` mirror div that holds `<mark>` tags. They must keep an identical width, font and wrapping, or the highlights drift; this broke once already. Rules:
-  - Words match on their vowel key (vowels from the last stressed syllable onward).
+  - Words match on their main-stress vowel key (`k`) **or** their end sound (`ek`, from the last stressed syllable including secondary stress, so dopa-MINE ~ seen, para-DISE ~ price). Vowels are normalised: UH = AH, unstressed IH = AH.
   - A word only highlights if a partner is within 4 lines (`WINDOW`) **and** in the same paragraph.
   - A blank line or a `[Header]` line starts a new paragraph.
-  - Multi-word rhymes are detected, e.g. "diamonds" ~ "behind us". AH/UH count as equal.
+  - Multi-word rhymes are detected, e.g. "diamonds" ~ "behind us".
   - One-syllable words only highlight if among the last 2 words of a line (`NEAR_END`); longer words highlight anywhere. Multi-word groups can't contain stop-words, and all-one-syllable groups must end the line.
   - Stop-words are skipped. Slang `-in'` maps to `-ing`, and unknown words fall back to a spelling guess.
   - A Rhymes button toggles highlighting on and off.
-- **Rhyme suggestions panel:** shows rhymes for the word at the cursor, or for the last word of the previous line when the current line is empty (but not across a paragraph break). Two groups, Perfect (same tail) and Near (same vowel key), most common words first. Tapping a word inserts it. Hide/Show is remembered.
+- **Rhyme suggestions panel:** shows rhymes for the word at the cursor, or for the last word of the previous line when the current line is empty (but not across a paragraph break). Groups: **Multis** (match extra syllables before the rhyme, e.g. dopamine → gasoline), **Perfect** (same end sound and consonants), **Phrases** (two-word rhymes following the word's stress, e.g. "broken seen", "behind us"), **Near** (same vowels, ranked by how close the ending consonants sound). Names and obscure words are never suggested. Tapping a word inserts it. Hide/Show is remembered.
 - **Section headers:** lines like `[Verse 1]` are shaded, excluded from counts, and act as paragraph breaks.
 - **Study notes** (Study button): the title takes "Artist – Song" and shows Genius/AZLyrics search links. Pasting into a Study note auto-cleans lyric-site junk (contributor counts, "Embed", "You might also like", ads) and adds gaps before headers.
 - **Analyse drawer:** per-section stats (bars, average and range of syllables per bar, rhyme density %, multi-rhyme count, end-rhyme scheme). A "Break down the writing" button calls Claude through the artifact `sample` capability (`claude.use('sample')`) for a coaching breakdown. Selecting bars first focuses it on how those bars connect. The prompt forbids quoting full lines.

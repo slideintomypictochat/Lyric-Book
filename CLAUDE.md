@@ -3,10 +3,13 @@
 ## What it is
 A minimal, Notes-style lyric writing app (inspired by Rhymer's Block). Owner is a music producer and rapper with no coding experience, so explain changes simply and keep replies compact.
 
-Current build: one self-contained web page, `lyric-book.html` (~2.3 MB, mostly embedded rhyme data). Target platforms: iPhone first, then Mac and PC. A native SwiftUI (iPhone/Mac) version is the long-term plan; the web version may stay for PC.
+Current build: one self-contained web page, `index.html` (~2.3 MB, mostly embedded rhyme data). Target platforms: iPhone first, then Mac and PC. A native SwiftUI (iPhone/Mac) version is the long-term plan; the web version may stay for PC.
+
+## Hosting
+GitHub repo `slideintomypictochat/lyric-book`, served by GitHub Pages from `main` at https://slideintomypictochat.github.io/lyric-book/ (the owner tests there on iPhone).
 
 ## Files
-- `lyric-book.html`: the whole app (HTML, CSS and JS inline). Two `<script>` blocks: the first is data (`RHYME_DATA`, `RANKED`), the second is app logic.
+- `index.html`: the whole app (HTML, CSS and JS inline). Two `<script>` blocks: the first is data (`RHYME_DATA`, `RANKED`), the second is app logic.
 - `build_rhyme_data.py`: regenerates the data block from the CMU Pronouncing Dictionary plus an English word-frequency list (source URLs and format are in the file header). Splice its `rhyme.js` output into the first `<script>`.
 
 ## Features working now
@@ -18,6 +21,7 @@ Current build: one self-contained web page, `lyric-book.html` (~2.3 MB, mostly e
   - A word only highlights if a partner is within 4 lines (`WINDOW`) **and** in the same paragraph.
   - A blank line or a `[Header]` line starts a new paragraph.
   - Multi-word rhymes are detected, e.g. "diamonds" ~ "behind us". AH/UH count as equal.
+  - One-syllable words only highlight if among the last 2 words of a line (`NEAR_END`); longer words highlight anywhere. Multi-word groups can't contain stop-words, and all-one-syllable groups must end the line.
   - Stop-words are skipped. Slang `-in'` maps to `-ing`, and unknown words fall back to a spelling guess.
   - A Rhymes button toggles highlighting on and off.
 - **Rhyme suggestions panel:** shows rhymes for the word at the cursor, or for the last word of the previous line when the current line is empty (but not across a paragraph break). Two groups, Perfect (same tail) and Near (same vowel key), most common words first. Tapping a word inserts it. Hide/Show is remembered.
@@ -31,8 +35,8 @@ Current build: one self-contained web page, `lyric-book.html` (~2.3 MB, mostly e
 - Rhyme data is bundled for offline use, because the web sandbox blocks outside requests such as the Datamuse API. A native app could use Datamuse.
 
 ## Open issues and next ideas
-1. **Check the highlighting alignment.** The owner's last screenshot showed highlights drifting off their words and blocks floating in empty space. The width fix (`.ed` padding-right 34px, `.hl` right:34px) should solve it. Verify with long wrapping lines; if it still drifts, consider rendering text and highlights in a single contenteditable layer.
-2. **Highlighting may be too busy:** too many small and common words light up. Options are a stricter stop-word list, a minimum of 2 syllables or a stressed-vowel match, or weighting toward line ends.
+1. **Highlighting alignment:** verified pixel-perfect in Chromium with long wrapping lines. Still to check on iPhone Safari, whose textareas have a ~3px built-in side inset that could shift highlights; if so, add a WebKit-only offset to `.hl`.
+2. ~~Highlighting too busy~~: done (see `NEAR_END` rule above).
 3. Thesaurus and dictionary (an offline WordNet subset, or Apple's dictionary in the native app).
 4. BPM/bar mode (syllables that fit per bar), a repeated-word warning, and copy/export.
 5. Port to SwiftUI for iPhone/Mac, with a Genius side panel and Datamuse online.

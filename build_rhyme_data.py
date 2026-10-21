@@ -1,4 +1,4 @@
-# Rebuilds the rhyme data embedded in lyric-book.html.
+# Rebuilds the rhyme data embedded in index.html.
 # Inputs: cmu.dict (https://raw.githubusercontent.com/cmusphinx/cmudict/master/cmudict.dict)
 #         freq.txt (https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt)
 # Output: rhyme.js -> const RHYME_DATA="..."; const RANKED="...";

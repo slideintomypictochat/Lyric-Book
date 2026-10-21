@@ -1,0 +1,4 @@
+node_modules/
+*.dict
+freq.txt
+rhyme.js

@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lyric Book</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lyric Book">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#FBFBF9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C1C1E" media="(prefers-color-scheme: dark)">
 <style>
 :root{
   --bg:#FBFBF9; --panel:#F3F3F0; --ink:#1C1C1E; --muted:#8A8A8E; --line:#E4E4E0; --hi:#F5D547; --hi-ink:#1C1C1E; --sel:#ECEBE4;
@@ -551,6 +560,8 @@ document.getElementById('newBtn').onclick=()=>create(false);
 document.getElementById('studyBtn').onclick=()=>create(true);
 load();current=sorted()[0]||null;renderList();renderMain();
 if(window.innerWidth<=720)document.getElementById('app').classList.remove('editing');
+// Installable app + offline use (only on the website; a downloaded copy just runs as a page)
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>

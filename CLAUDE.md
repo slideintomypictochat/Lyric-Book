@@ -3,10 +3,10 @@
 ## What it is
 A minimal, Notes-style lyric writing app (inspired by Rhymer's Block). Owner is a music producer and rapper with no coding experience, so explain changes simply and keep replies compact.
 
-Current build: one self-contained web page, `index.html` (~2.3 MB, mostly embedded rhyme data). Target platforms: iPhone first, then Mac and PC. A native SwiftUI (iPhone/Mac) version is the long-term plan; the web version may stay for PC.
+Current build: a web app (`index.html`, ~2.6 MB, mostly embedded rhyme data) installable as a PWA on iPhone, Android, Mac and PC, and usable offline. A native SwiftUI (iPhone/Mac) version is the long-term plan; the web version may stay for PC.
 
 ## Hosting
-GitHub repo `slideintomypictochat/Lyric-Book`, served by GitHub Pages from `main` at https://slideintomypictochat.github.io/Lyric-Book/ (the owner tests there on iPhone).
+GitHub repo `slideintomypictochat/Lyric-Book` is the single home of the project: all work is committed and pushed to `main`, which GitHub Pages serves at https://slideintomypictochat.github.io/Lyric-Book/ (the owner tests there on iPhone and PC). `README.md` is the owner-facing guide (install steps per platform).
 
 ## Files
 - `index.html`: the whole app (HTML, CSS and JS inline). Two `<script>` blocks: the first is data (`RHYME_DATA`, `RANKED`), the second is app logic.
@@ -14,9 +14,11 @@ GitHub repo `slideintomypictochat/Lyric-Book`, served by GitHub Pages from `main
 - `dictionary.js`: definitions, synonyms, opposites and related words for ~29k common words (WordNet), ~4 MB. Loaded on demand the first time Synonyms/Define is opened, so it must sit next to `index.html`.
 - `build_dictionary.py`: regenerates `dictionary.js` from WordNet (via nltk). Changed forms (ran, dreams) point to their dictionary form; slurs are blocked.
 - `splice_rhyme_data.py`: puts the generated `rhyme.js` into the first `<script>` of `index.html`.
+- `manifest.webmanifest`, `sw.js`, `icons/`: make it an installable app. `sw.js` is network-first (updates show straight away) with a cache fallback for offline use; bump `CACHE` in `sw.js` if cached files ever need a hard reset. The worker registers only on https or localhost.
+- Source data for the build scripts (cmu.dict, freq.txt, en_US.dic, WordNet) is downloaded, not committed; URLs are in each script's header.
 
 ## Features working now
-- **Projects:** notes-style list on the left (single-screen list/editor toggle on mobile, under 720px). Autosaves to `localStorage` key `lyricbook.projects.v1` as `{id,title,body,updated,study}`.
+- **Projects:** saved per device/browser in `localStorage` (no cross-device sync yet). Notes-style list on the left (single-screen list/editor toggle on mobile, under 720px). Autosaves to `localStorage` key `lyricbook.projects.v1` as `{id,title,body,updated,study}`.
 - **Delete:** two-tap confirm. `confirm()` is blocked in the sandbox, so don't use it.
 - **Word and line count** in the footer. **Syllables per line** in the right margin.
 - **Rhyme highlighting:** a transparent `<textarea>` sits over a `.hl` mirror div that holds `<mark>` tags. They must keep an identical width, font and wrapping, or the highlights drift; this broke once already. Rules:

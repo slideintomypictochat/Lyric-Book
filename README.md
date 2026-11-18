@@ -19,8 +19,9 @@ Once opened, it keeps working without internet. When you're online it picks up t
 
 ## Good to know
 
-- **Your lyrics are saved on each device, in that browser.** Songs written on your iPhone don't appear on your PC (yet).
-  Clearing the browser's website data deletes them.
+- **Sign in to sync.** Tap the account icon (next to ✎) and sign in on each device. Your songs then stay the same everywhere,
+  and still work offline (changes sync when you're back online). Signed out, songs are saved on that device only.
+  Accounts need a one-time Supabase setup: see [`supabase/SETUP.md`](supabase/SETUP.md).
 - The **Break down the writing** button in Analyse only works inside Claude, not on the website.
 
 ## Features
@@ -35,6 +36,7 @@ Once opened, it keeps working without internet. When you're online it picks up t
 Everything is plain HTML, CSS and JavaScript with no build step. `CLAUDE.md` has the technical notes.
 
 - `index.html` is the app. `dictionary.js` is loaded the first time Synonyms or Define is opened.
+- `sync.js`, `config.js`, `vendor/supabase.js` and `supabase/` handle accounts and sync.
 - `sw.js` and `manifest.webmanifest` make it installable and usable offline. Icons are in `icons/`.
 - `build_rhyme_data.py` + `splice_rhyme_data.py` rebuild the rhyme data. `build_dictionary.py` rebuilds the dictionary.
 

@@ -15,10 +15,15 @@ GitHub repo `slideintomypictochat/Lyric-Book` is the single home of the project:
 - `build_dictionary.py`: regenerates `dictionary.js` from WordNet (via nltk). Changed forms (ran, dreams) point to their dictionary form; slurs are blocked.
 - `splice_rhyme_data.py`: puts the generated `rhyme.js` into the first `<script>` of `index.html`.
 - `manifest.webmanifest`, `sw.js`, `icons/`: make it an installable app. `sw.js` is network-first (updates show straight away) with a cache fallback for offline use; bump `CACHE` in `sw.js` if cached files ever need a hard reset. The worker registers only on https or localhost.
+- `config.js`: Supabase project URL + anon key (public by design). Empty = no accounts, app works as before.
+- `sync.js`: accounts + sync (account drawer, sign in/up, forgot password, admin panel, background sync). Uses globals from the app script (`projects`, `current`, `storeKey`, `load`, `persist`, `sorted`, `renderList`, `renderMain`, `esc`).
+- `vendor/supabase.js`: supabase-js 2.45.4 UMD, vendored so it works offline.
+- `supabase/setup.sql`: tables, row-level security and functions (run in the Supabase SQL editor; safe to re-run). `supabase/SETUP.md`: owner's setup steps.
 - Source data for the build scripts (cmu.dict, freq.txt, en_US.dic, WordNet) is downloaded, not committed; URLs are in each script's header.
 
 ## Features working now
-- **Projects:** saved per device/browser in `localStorage` (no cross-device sync yet). Notes-style list on the left (single-screen list/editor toggle on mobile, under 720px). Autosaves to `localStorage` key `lyricbook.projects.v1` as `{id,title,body,updated,study}`.
+- **Accounts + sync** (Supabase): username + email + password; sign in with either. Songs save locally first (`dirty` flag), then sync: pull rows with `modified_at` newer than the last pull, newest `updated` wins per song, push dirty songs. Deletes are tombstones (`deleted:true`, hidden by `sorted()`). Syncs ~1.5s after an edit, on focus/online, and every 20s. Signed in, songs live under `lyricbook.projects.v1.<userId>`; songs written signed out move into the first account that signs in on that device. Forgot password = Supabase reset email (redirects back; `PASSWORD_RECOVERY` shows a new-password form). **Admin** (first account, `profiles.is_admin`): list accounts and set anyone's password (`admin_set_password`, no email); signed out, an **admin recovery code** (bcrypt-hashed in `admin_recovery`) sets a new password (`admin_recover`). Username lookup (`email_for_username`) is callable signed out, which reveals the email for a username; acceptable for a private app.
+- **Projects:** saved per device in `localStorage`, synced when signed in. Notes-style list on the left (single-screen list/editor toggle on mobile, under 720px). Autosaves to `localStorage` key `lyricbook.projects.v1` as `{id,title,body,updated,study}`.
 - **Delete:** two-tap confirm. `confirm()` is blocked in the sandbox, so don't use it.
 - **Word and line count** in the footer. **Syllables per line** in the right margin.
 - **Rhyme highlighting:** a transparent `<textarea>` sits over a `.hl` mirror div that holds `<mark>` tags. They must keep an identical width, font and wrapping, or the highlights drift; this broke once already. Rules:
